@@ -31,6 +31,8 @@ import {
     isAfter,
     parseISO,
     format,
+    subDays,
+    isSameDay,
 } from 'date-fns';
 
 ChartJS.register(
@@ -64,7 +66,7 @@ export default function DashboardPage() {
     const stats = useMemo(() => {
         if (!trades.length) {
             return {
-                totalPL: 0, todayPL: 0, weekPL: 0, monthPL: 0,
+                totalPL: 0, todayPL: 0, yesterdayPL: 0, weekPL: 0, monthPL: 0,
                 winRate: 0, totalTrades: 0, wins: 0, losses: 0,
                 bestTrade: 0, worstTrade: 0, profitPercent: 0,
                 bestAsset: '-', worstAsset: '-',
@@ -73,10 +75,11 @@ export default function DashboardPage() {
 
         const now = new Date();
         const todayStart = startOfDay(now);
+        const yesterdayStart = startOfDay(subDays(now, 1));
         const weekStart = startOfWeek(now, { weekStartsOn: 1 });
         const monthStart = startOfMonth(now);
 
-        let totalPL = 0, todayPL = 0, weekPL = 0, monthPL = 0;
+        let totalPL = 0, todayPL = 0, yesterdayPL = 0, weekPL = 0, monthPL = 0;
         let wins = 0, losses = 0;
         let bestTrade = -Infinity, worstTrade = Infinity;
 
@@ -85,6 +88,7 @@ export default function DashboardPage() {
             const d = parseISO(t.date);
             totalPL += amt;
             if (isAfter(d, todayStart) || d.toDateString() === now.toDateString()) todayPL += amt;
+            if (isSameDay(d, yesterdayStart)) yesterdayPL += amt;
             if (isAfter(d, weekStart) || d >= weekStart) weekPL += amt;
             if (isAfter(d, monthStart) || d >= monthStart) monthPL += amt;
             if (amt >= 0) wins++;
@@ -100,7 +104,7 @@ export default function DashboardPage() {
         const profitPercent = totalNegative > 0 ? (((totalPositive - totalNegative) / totalNegative) * 100).toFixed(1) : totalPositive > 0 ? 100 : 0;
 
         return {
-            totalPL, todayPL, weekPL, monthPL,
+            totalPL, todayPL, yesterdayPL, weekPL, monthPL,
             winRate, totalTrades, wins, losses,
             bestTrade: bestTrade === -Infinity ? 0 : bestTrade,
             worstTrade: worstTrade === Infinity ? 0 : worstTrade,
@@ -241,6 +245,16 @@ export default function DashboardPage() {
                     <div className="stat-info">
                         <span className="stat-label">Today</span>
                         <span className="stat-value">{formatMoney(stats.todayPL)}</span>
+                    </div>
+                </div>
+
+                <div className={`stat-card ${stats.yesterdayPL >= 0 ? 'positive' : 'negative'}`}>
+                    <div className="stat-icon">
+                        <Calendar size={22} />
+                    </div>
+                    <div className="stat-info">
+                        <span className="stat-label">Yesterday</span>
+                        <span className="stat-value">{formatMoney(stats.yesterdayPL)}</span>
                     </div>
                 </div>
 

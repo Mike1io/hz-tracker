@@ -1,57 +1,24 @@
-import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw, Twitter, X } from 'lucide-react';
-
-const SYMBOLS = [
-    { id: 'BTCUSDT', name: 'Bitcoin', symbol: 'BTC', xLink: 'https://x.com/Bitcoin', embedLink: 'https://s.tradingview.com/widgetembed/?symbol=BINANCE:BTCUSDT&interval=D&theme=dark' },
-    { id: 'ETHUSDT', name: 'Ethereum', symbol: 'ETH', xLink: 'https://x.com/ethereum', embedLink: 'https://s.tradingview.com/widgetembed/?symbol=BINANCE:ETHUSDT&interval=D&theme=dark' },
-    { id: 'SOLUSDT', name: 'Solana', symbol: 'SOL', xLink: 'https://x.com/solana', embedLink: 'https://s.tradingview.com/widgetembed/?symbol=BINANCE:SOLUSDT&interval=D&theme=dark' },
-    { id: 'BNBUSDT', name: 'BNB', symbol: 'BNB', xLink: 'https://x.com/BNBCHAIN', embedLink: 'https://s.tradingview.com/widgetembed/?symbol=BINANCE:BNBUSDT&interval=D&theme=dark' },
-    { id: 'PUMPUSDT', name: 'Pump', symbol: 'PUMP', xLink: 'https://x.com/Pumpfun', embedLink: 'https://s.tradingview.com/widgetembed/?symbol=BYBIT:PUMPUSDT&interval=D&theme=dark' },
-    { id: 'JUPUSDT', name: 'Jupiter', symbol: 'JUP', xLink: 'https://x.com/JupiterExchange', embedLink: 'https://s.tradingview.com/widgetembed/?symbol=BINANCE:JUPUSDT&interval=D&theme=dark' },
-    { id: 'hyperliquid', name: 'Hype', symbol: 'HYPE', xLink: 'https://x.com/HyperliquidX', embedLink: 'https://s.tradingview.com/widgetembed/?symbol=BYBIT:HYPEUSDT&interval=D&theme=dark' },
-    { id: 'ZROUSDT', name: 'LayerZero', symbol: 'ZRO', xLink: 'https://x.com/LayerZero_Core', embedLink: 'https://s.tradingview.com/widgetembed/?symbol=BINANCE:ZROUSDT&interval=D&theme=dark' }
-];
+import { useState, useEffect, useMemo } from 'react';
+import { TrendingUp, TrendingDown, Activity, RefreshCw, X, Search, Globe, Twitter } from 'lucide-react';
 
 export default function MarketPage() {
-    const [prices, setPrices] = useState({});
+    const [coins, setCoins] = useState([]);
     const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState(null);
     const [selectedAsset, setSelectedAsset] = useState(null);
+    const [coinDetails, setCoinDetails] = useState(null);
+    const [detailsLoading, setDetailsLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     const fetchPrices = async () => {
         try {
-            // Binance API for standard pairs
-            const binanceRes = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbols=["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT","PUMPUSDT","JUPUSDT","ZROUSDT"]');
-            const binanceData = await binanceRes.json();
+            const res = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h');
+            const data = await res.json();
 
-            const priceMap = {};
-            if (Array.isArray(binanceData)) {
-                binanceData.forEach(ticker => {
-                    priceMap[ticker.symbol] = {
-                        price: parseFloat(ticker.lastPrice),
-                        change24h: parseFloat(ticker.priceChangePercent),
-                        volume: parseFloat(ticker.quoteVolume)
-                    };
-                });
+            if (Array.isArray(data)) {
+                setCoins(data);
+                setLastUpdated(new Date());
             }
-
-            // CoinGecko API for Hype (not on Binance)
-            try {
-                const cgRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=hyperliquid&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true');
-                const cgData = await cgRes.json();
-                if (cgData && cgData.hyperliquid) {
-                    priceMap['hyperliquid'] = {
-                        price: cgData.hyperliquid.usd || 0,
-                        change24h: cgData.hyperliquid.usd_24h_change || 0,
-                        volume: cgData.hyperliquid.usd_24h_vol || 0
-                    };
-                }
-            } catch (cgError) {
-                console.error('Failed to fetch from CoinGecko:', cgError);
-            }
-
-            setPrices(priceMap);
-            setLastUpdated(new Date());
         } catch (error) {
             console.error('Failed to fetch market prices:', error);
         } finally {
@@ -61,19 +28,46 @@ export default function MarketPage() {
 
     useEffect(() => {
         fetchPrices();
-        // Refresh every 10 seconds
-        const interval = setInterval(fetchPrices, 10000);
+        const interval = setInterval(fetchPrices, 30000);
         return () => clearInterval(interval);
     }, []);
 
+    useEffect(() => {
+        if (selectedAsset) {
+            fetchCoinDetails(selectedAsset.id);
+        } else {
+            setCoinDetails(null);
+        }
+    }, [selectedAsset]);
+
+    const fetchCoinDetails = async (id) => {
+        setDetailsLoading(true);
+        try {
+            const res = await fetch(`https://api.coingecko.com/api/v3/coins/${id}?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false&sparkline=false`);
+            const data = await res.json();
+            setCoinDetails(data);
+        } catch (error) {
+            console.error('Failed to fetch coin details:', error);
+        } finally {
+            setDetailsLoading(false);
+        }
+    };
+
+    const filteredCoins = useMemo(() => {
+        if (!searchQuery) return coins;
+        return coins.filter(coin =>
+            coin.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            coin.symbol.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [coins, searchQuery]);
+
     const formatPrice = (price) => {
-        if (!price) return '---';
-        // Format large numbers with commas, and small numbers with correct decimals
+        if (price === undefined || price === null) return '---';
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'USD',
             minimumFractionDigits: price < 1 ? 4 : 2,
-            maximumFractionDigits: price < 1 ? 4 : 2,
+            maximumFractionDigits: price < 1 ? 6 : 2,
         }).format(price);
     };
 
@@ -84,51 +78,80 @@ export default function MarketPage() {
         return `$${vol.toLocaleString()}`;
     };
 
+    const getTradingViewLink = (coin) => {
+        const symbol = coin.symbol.toUpperCase();
+        return `https://s.tradingview.com/widgetembed/?symbol=BINANCE:${symbol}USDT&interval=D&theme=dark`;
+    };
+
     return (
         <div className="market-page">
-            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
                 <div>
                     <h1>Market Overview</h1>
-                    <p className="page-subtitle">Live cryptocurrency prices and 24h changes</p>
+                    <p className="page-subtitle">Top 100 Cryptocurrencies by Market Cap</p>
                 </div>
-                <button
-                    onClick={() => { setLoading(true); fetchPrices(); }}
-                    className="btn-icon"
-                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
-                    title="Refresh prices"
-                >
-                    <RefreshCw size={18} className={loading ? 'spin' : ''} />
-                </button>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div className="search-container" style={{ position: 'relative' }}>
+                        <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input
+                            type="text"
+                            placeholder="Search tokens..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={{
+                                padding: '10px 12px 10px 40px',
+                                background: 'var(--bg-card)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '10px',
+                                color: 'var(--text)',
+                                width: '250px',
+                                fontSize: '0.9rem',
+                                transition: 'all 0.2s'
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+                            onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+                        />
+                    </div>
+                    <button
+                        onClick={() => { setLoading(true); fetchPrices(); }}
+                        className="btn-icon"
+                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', width: '40px', height: '40px' }}
+                        title="Refresh prices"
+                    >
+                        <RefreshCw size={18} className={loading && !coins.length ? 'spin' : ''} />
+                    </button>
+                </div>
             </div>
 
-            {loading && !Object.keys(prices).length ? (
+            {loading && !coins.length ? (
                 <div className="loading-screen">
                     <div className="spinner" />
                     <p>Loading market data...</p>
                 </div>
             ) : (
                 <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-                    {SYMBOLS.map(asset => {
-                        const data = prices[asset.id];
-                        if (!data) return null;
-
-                        const isPositive = data.change24h >= 0;
+                    {filteredCoins.map(coin => {
+                        const isPositive = coin.price_change_percentage_24h >= 0;
 
                         return (
                             <div
-                                key={asset.id}
+                                key={coin.id}
                                 className={`stat-card market-card-hover ${isPositive ? 'positive' : 'negative'}`}
-                                onClick={() => setSelectedAsset(asset)}
+                                onClick={() => setSelectedAsset(coin)}
                             >
                                 <div style={{ width: '100%' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div className="stat-icon" style={{ width: '36px', height: '36px' }}>
-                                                <Activity size={18} />
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {coin.image ? (
+                                                    <img src={coin.image} alt={coin.name} style={{ width: '100%', height: '100%' }} />
+                                                ) : (
+                                                    <Activity size={18} />
+                                                )}
                                             </div>
                                             <div>
-                                                <h3 style={{ fontSize: '1.1rem', margin: 0 }}>{asset.name}</h3>
-                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{asset.symbol}</span>
+                                                <h3 style={{ fontSize: '1.1rem', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>{coin.name}</h3>
+                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{coin.symbol.toUpperCase()}</span>
                                             </div>
                                         </div>
                                         <div
@@ -138,55 +161,37 @@ export default function MarketPage() {
                                                 gap: '4px',
                                                 padding: '4px 8px',
                                                 borderRadius: '6px',
-                                                background: isPositive ? 'var(--green-bg)' : 'var(--red-bg)',
+                                                background: isPositive ? 'rgba(0, 212, 170, 0.1)' : 'rgba(255, 75, 75, 0.1)',
                                                 color: isPositive ? 'var(--green)' : 'var(--red)',
                                                 fontSize: '0.85rem',
                                                 fontWeight: '600'
                                             }}
                                         >
                                             {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                                            {Math.abs(data.change24h).toFixed(2)}%
+                                            {Math.abs(coin.price_change_percentage_24h || 0).toFixed(2)}%
                                         </div>
                                     </div>
 
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                             <span style={{ fontSize: '1.6rem', fontWeight: '700', fontFamily: '"Space Grotesk", sans-serif' }}>
-                                                {formatPrice(data.price)}
+                                                {formatPrice(coin.current_price)}
                                             </span>
                                             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                                Vol: {formatVolume(data.volume)}
+                                                MCap: {formatVolume(coin.market_cap)}
                                             </span>
                                         </div>
-                                        <a
-                                            href={asset.xLink}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            onClick={(e) => e.stopPropagation()}
+                                        <div
                                             style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                width: '32px',
-                                                height: '32px',
-                                                borderRadius: '8px',
-                                                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                                color: 'var(--text-secondary)',
-                                                transition: 'all 0.2s',
-                                                cursor: 'pointer'
+                                                fontSize: '0.75rem',
+                                                color: 'var(--text-muted)',
+                                                padding: '4px 8px',
+                                                borderRadius: '4px',
+                                                background: 'rgba(255,255,255,0.05)'
                                             }}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                                                e.currentTarget.style.color = '#fff';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-                                                e.currentTarget.style.color = 'var(--text-secondary)';
-                                            }}
-                                            title={`Visit ${asset.name} on X`}
                                         >
-                                            <Twitter size={16} />
-                                        </a>
+                                            Rank #{coin.market_cap_rank}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -196,9 +201,17 @@ export default function MarketPage() {
             )
             }
 
+            {filteredCoins.length === 0 && !loading && (
+                <div style={{ textAlign: 'center', padding: '100px 20px', color: 'var(--text-secondary)' }}>
+                    <Search size={48} style={{ marginBottom: '16px', opacity: 0.2 }} />
+                    <h3>No tokens found</h3>
+                    <p>Try searching for a different name or symbol</p>
+                </div>
+            )}
+
             {lastUpdated && (
                 <div style={{ marginTop: '24px', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'right' }}>
-                    Last updated: {lastUpdated.toLocaleTimeString()}
+                    Last updated: {lastUpdated.toLocaleTimeString()} (CoinGecko)
                 </div>
             )}
 
@@ -224,14 +237,16 @@ export default function MarketPage() {
                         style={{
                             width: '100%',
                             maxWidth: '1000px',
-                            height: '70vh',
-                            minHeight: '400px',
+                            height: '80vh',
+                            minHeight: '500px',
                             backgroundColor: 'var(--bg-card)',
                             borderRadius: '16px',
                             overflow: 'hidden',
                             position: 'relative',
                             border: '1px solid var(--border)',
-                            boxShadow: '0 24px 48px rgba(0,0,0,0.5)'
+                            boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
+                            display: 'flex',
+                            flexDirection: 'column'
                         }}
                     >
                         <button
@@ -258,14 +273,48 @@ export default function MarketPage() {
                         >
                             <X size={18} />
                         </button>
-                        <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-elevated)' }}>
-                            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                {selectedAsset.name} ({selectedAsset.symbol}) Live Chart
-                            </h3>
+                        <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <img src={selectedAsset.image} alt="" style={{ width: '28px', height: '28px' }} />
+                                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {selectedAsset.name} ({selectedAsset.symbol.toUpperCase()})
+                                </h3>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '12px', marginRight: '40px' }}>
+                                {detailsLoading ? (
+                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading info...</span>
+                                ) : coinDetails ? (
+                                    <>
+                                        {coinDetails.links?.homepage?.[0] && (
+                                            <a
+                                                href={coinDetails.links.homepage[0]}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="token-link"
+                                                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', color: 'var(--primary)', textDecoration: 'none', fontWeight: '500' }}
+                                            >
+                                                <Globe size={16} /> Website
+                                            </a>
+                                        )}
+                                        {coinDetails.twitter_screen_name || coinDetails.links?.twitter_screen_name ? (
+                                            <a
+                                                href={`https://x.com/${coinDetails.links?.twitter_screen_name || coinDetails.twitter_screen_name}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="token-link"
+                                                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', color: '#fff', textDecoration: 'none', fontWeight: '500' }}
+                                            >
+                                                <Twitter size={16} /> Twitter
+                                            </a>
+                                        ) : null}
+                                    </>
+                                ) : null}
+                            </div>
                         </div>
                         <iframe
-                            src={selectedAsset.embedLink}
-                            style={{ width: '100%', height: 'calc(100% - 58px)', border: 'none' }}
+                            src={getTradingViewLink(selectedAsset)}
+                            style={{ width: '100%', flex: 1, border: 'none' }}
                             title={`${selectedAsset.name} Chart`}
                         />
                     </div>
@@ -276,6 +325,11 @@ export default function MarketPage() {
         .spin { animation: spin 1s linear infinite; }
         .market-card-hover { cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
         .market-card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+        
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
       `}</style>
         </div >
     );
