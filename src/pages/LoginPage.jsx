@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabaseClient';
 import { TrendingUp, Mail, Lock, ArrowRight, Eye, EyeOff, ChevronLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -20,11 +21,20 @@ export default function LoginPage() {
             setView(location.state.isSignUp ? 'signup' : 'login');
         }
 
-        // Check for password recovery hash
+        // Check for password recovery hash on initial load
         if (window.location.hash && window.location.hash.includes('type=recovery')) {
             setView('update-password');
         }
-    }, [location.state]);
+
+        // Listen for PASSWORD_RECOVERY event
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+            if (event === 'PASSWORD_RECOVERY') {
+                setView('update-password');
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, [location]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
