@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import AddTradePage from './pages/AddTradePage';
@@ -19,7 +20,7 @@ function App() {
           toastOptions={{
             style: {
               background: '#1a1a2e',
-              color: '#e0e0f0',
+              color: '#e0f0ff',
               border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: '12px',
             },
@@ -32,6 +33,7 @@ function App() {
           }}
         />
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route
             element={
@@ -40,7 +42,7 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/" element={<DashboardPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/add-trade" element={<AddTradePage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/profile" element={<ProfilePage />} />

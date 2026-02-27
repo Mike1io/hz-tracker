@@ -45,7 +45,7 @@ export default function Layout() {
     };
 
     const navItems = [
-        { to: '/', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
+        { to: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
         { to: '/add-trade', icon: <PlusCircle size={20} />, label: 'Add Trade' },
         { to: '/history', icon: <History size={20} />, label: 'History' },
         { to: '/profile', icon: <UserCircle size={20} />, label: 'Account' },

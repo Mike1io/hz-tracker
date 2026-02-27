@@ -1,17 +1,24 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { TrendingUp, Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
-    const [isSignUp, setIsSignUp] = useState(false);
+    const location = useLocation();
+    const [isSignUp, setIsSignUp] = useState(location.state?.isSignUp || false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const { signIn, signUp } = useAuth();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        if (location.state?.isSignUp !== undefined) {
+            setIsSignUp(location.state.isSignUp);
+        }
+    }, [location.state]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -23,7 +30,7 @@ export default function LoginPage() {
             } else {
                 await signIn(email, password);
                 toast.success('Welcome back!');
-                navigate('/');
+                navigate('/dashboard');
             }
         } catch (err) {
             toast.error(err.message);
