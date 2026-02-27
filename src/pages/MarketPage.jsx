@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, TrendingDown, Activity, RefreshCw, X, Search, Globe, Twitter } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, RefreshCw, X, Search, Globe, Twitter, Heart } from 'lucide-react';
 
 export default function MarketPage() {
     const [coins, setCoins] = useState([]);
@@ -9,6 +9,19 @@ export default function MarketPage() {
     const [coinDetails, setCoinDetails] = useState(null);
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [activeTab, setActiveTab] = useState('all');
+    const [favorites, setFavorites] = useState(() => {
+        const saved = localStorage.getItem('market_favorites');
+        try {
+            return saved ? JSON.parse(saved) : [];
+        } catch (e) {
+            return [];
+        }
+    });
+
+    useEffect(() => {
+        localStorage.setItem('market_favorites', JSON.stringify(favorites));
+    }, [favorites]);
 
     const fetchPrices = async () => {
         try {
@@ -54,12 +67,30 @@ export default function MarketPage() {
     };
 
     const filteredCoins = useMemo(() => {
-        if (!searchQuery) return coins;
-        return coins.filter(coin =>
-            coin.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            coin.symbol.toLowerCase().includes(searchQuery.toLowerCase())
+        let result = coins;
+
+        if (activeTab === 'favorites') {
+            result = result.filter(coin => favorites.includes(coin.id));
+        }
+
+        if (searchQuery) {
+            result = result.filter(coin =>
+                coin.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                coin.symbol.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
+
+        return result;
+    }, [coins, searchQuery, activeTab, favorites]);
+
+    const toggleFavorite = (e, coinId) => {
+        e.stopPropagation();
+        setFavorites(prev =>
+            prev.includes(coinId)
+                ? prev.filter(id => id !== coinId)
+                : [...prev, coinId]
         );
-    }, [coins, searchQuery]);
+    };
 
     const formatPrice = (price) => {
         if (price === undefined || price === null) return '---';
@@ -112,6 +143,49 @@ export default function MarketPage() {
                             onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
                         />
                     </div>
+
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--bg-card)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                        <button
+                            onClick={() => setActiveTab('all')}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: activeTab === 'all' ? 'var(--bg-elevated)' : 'transparent',
+                                color: activeTab === 'all' ? 'var(--text)' : 'var(--text-muted)',
+                                fontSize: '0.9rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            <Activity size={16} /> All Tokens
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('favorites')}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: activeTab === 'favorites' ? 'var(--bg-elevated)' : 'transparent',
+                                color: activeTab === 'favorites' ? 'var(--text)' : 'var(--text-muted)',
+                                fontSize: '0.9rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            <Heart size={16} fill={activeTab === 'favorites' ? 'var(--red)' : 'none'} color={activeTab === 'favorites' ? 'var(--red)' : 'currentColor'} />
+                            Favorites
+                        </button>
+                    </div>
+
                     <button
                         onClick={() => { setLoading(true); fetchPrices(); }}
                         className="btn-icon"
@@ -154,21 +228,43 @@ export default function MarketPage() {
                                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{coin.symbol.toUpperCase()}</span>
                                             </div>
                                         </div>
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '4px',
-                                                padding: '4px 8px',
-                                                borderRadius: '6px',
-                                                background: isPositive ? 'rgba(0, 212, 170, 0.1)' : 'rgba(255, 75, 75, 0.1)',
-                                                color: isPositive ? 'var(--green)' : 'var(--red)',
-                                                fontSize: '0.85rem',
-                                                fontWeight: '600'
-                                            }}
-                                        >
-                                            {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                                            {Math.abs(coin.price_change_percentage_24h || 0).toFixed(2)}%
+
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <button
+                                                onClick={(e) => toggleFavorite(e, coin.id)}
+                                                className="fav-toggle"
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    padding: '4px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    color: favorites.includes(coin.id) ? 'var(--red)' : 'var(--text-muted)',
+                                                    transition: 'transform 0.2s'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
+                                                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                                            >
+                                                <Heart size={20} fill={favorites.includes(coin.id) ? 'var(--red)' : 'none'} />
+                                            </button>
+                                            <div
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    padding: '4px 8px',
+                                                    borderRadius: '6px',
+                                                    background: isPositive ? 'rgba(0, 212, 170, 0.1)' : 'rgba(255, 75, 75, 0.1)',
+                                                    color: isPositive ? 'var(--green)' : 'var(--red)',
+                                                    fontSize: '0.85rem',
+                                                    fontWeight: '600'
+                                                }}
+                                            >
+                                                {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                                                {Math.abs(coin.price_change_percentage_24h || 0).toFixed(2)}%
+                                            </div>
                                         </div>
                                     </div>
 
@@ -203,9 +299,9 @@ export default function MarketPage() {
 
             {filteredCoins.length === 0 && !loading && (
                 <div style={{ textAlign: 'center', padding: '100px 20px', color: 'var(--text-secondary)' }}>
-                    <Search size={48} style={{ marginBottom: '16px', opacity: 0.2 }} />
-                    <h3>No tokens found</h3>
-                    <p>Try searching for a different name or symbol</p>
+                    {activeTab === 'favorites' ? <Heart size={48} style={{ marginBottom: '16px', opacity: 0.2 }} /> : <Search size={48} style={{ marginBottom: '16px', opacity: 0.2 }} />}
+                    <h3>{activeTab === 'favorites' ? 'No favorites yet' : 'No tokens found'}</h3>
+                    <p>{activeTab === 'favorites' ? 'Start favoriting tokens to see them here' : 'Try searching for a different name or symbol'}</p>
                 </div>
             )}
 

@@ -1,22 +1,28 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { TrendingUp, Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { TrendingUp, Mail, Lock, ArrowRight, Eye, EyeOff, ChevronLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
     const location = useLocation();
-    const [isSignUp, setIsSignUp] = useState(location.state?.isSignUp || false);
+    const [view, setView] = useState(location.state?.isSignUp ? 'signup' : 'login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
-    const { signIn, signUp } = useAuth();
+    const { signIn, signUp, resetPassword, updateUser } = useAuth();
     const navigate = useNavigate();
 
     useEffect(() => {
         if (location.state?.isSignUp !== undefined) {
-            setIsSignUp(location.state.isSignUp);
+            setView(location.state.isSignUp ? 'signup' : 'login');
+        }
+
+        // Check for password recovery hash
+        if (window.location.hash && window.location.hash.includes('type=recovery')) {
+            setView('update-password');
         }
     }, [location.state]);
 
@@ -24,12 +30,20 @@ export default function LoginPage() {
         e.preventDefault();
         setLoading(true);
         try {
-            if (isSignUp) {
+            if (view === 'signup') {
                 await signUp(email, password);
                 toast.success('Account created! Check your email to confirm.');
-            } else {
+            } else if (view === 'login') {
                 await signIn(email, password);
                 toast.success('Welcome back!');
+                navigate('/dashboard');
+            } else if (view === 'forgot') {
+                await resetPassword(email);
+                toast.success('Password reset email sent! Check your inbox.');
+                setView('login');
+            } else if (view === 'update-password') {
+                await updateUser({ password: newPassword });
+                toast.success('Password updated successfully!');
                 navigate('/dashboard');
             }
         } catch (err) {
@@ -37,6 +51,13 @@ export default function LoginPage() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const getTitle = () => {
+        if (view === 'signup') return 'Create your trading journal';
+        if (view === 'login') return 'Welcome back, trader';
+        if (view === 'update-password') return 'Set new password';
+        return 'Reset your password';
     };
 
     return (
@@ -49,51 +70,115 @@ export default function LoginPage() {
 
             <div className="login-container">
                 <div className="login-card">
+                    {(view === 'forgot' || view === 'update-password') && (
+                        <button
+                            className="back-btn"
+                            onClick={() => setView('login')}
+                            style={{
+                                position: 'absolute',
+                                left: '20px',
+                                top: '24px',
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '0.9rem',
+                                padding: 0
+                            }}
+                        >
+                            <ChevronLeft size={18} /> Back
+                        </button>
+                    )}
+
                     <div className="login-header">
                         <div className="login-logo">
                             <TrendingUp size={36} />
                         </div>
                         <h1>Hz Tracker</h1>
-                        <p>{isSignUp ? 'Create your trading journal' : 'Welcome back, trader'}</p>
+                        <p>{getTitle()}</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="login-form">
-                        <div className="input-group">
-                            <Mail size={18} className="input-icon" />
-                            <input
-                                type="email"
-                                placeholder="Email address"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                            />
-                        </div>
+                        {view !== 'update-password' && (
+                            <div className="input-group">
+                                <Mail size={18} className="input-icon" />
+                                <input
+                                    type="email"
+                                    placeholder="Email address"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        )}
 
-                        <div className="input-group">
-                            <Lock size={18} className="input-icon" />
-                            <input
-                                type={showPassword ? 'text' : 'password'}
-                                placeholder="Password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                minLength={6}
-                            />
-                            <button
-                                type="button"
-                                className="password-toggle"
-                                onClick={() => setShowPassword(!showPassword)}
-                            >
-                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                            </button>
-                        </div>
+                        {view !== 'forgot' && view !== 'update-password' && (
+                            <div className="input-group">
+                                <Lock size={18} className="input-icon" />
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="Password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    minLength={6}
+                                />
+                                <button
+                                    type="button"
+                                    className="password-toggle"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                        )}
+
+                        {view === 'update-password' && (
+                            <div className="input-group">
+                                <Lock size={18} className="input-icon" />
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="New Password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    required
+                                    minLength={6}
+                                />
+                                <button
+                                    type="button"
+                                    className="password-toggle"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                        )}
+
+                        {view === 'login' && (
+                            <div style={{ textAlign: 'right', marginTop: '-8px', marginBottom: '16px' }}>
+                                <button
+                                    type="button"
+                                    className="btn-link"
+                                    onClick={() => setView('forgot')}
+                                    style={{ fontSize: '0.85rem' }}
+                                >
+                                    Forgot your password?
+                                </button>
+                            </div>
+                        )}
 
                         <button type="submit" className="btn-primary" disabled={loading}>
                             {loading ? (
                                 <div className="btn-spinner" />
                             ) : (
                                 <>
-                                    {isSignUp ? 'Create Account' : 'Sign In'}
+                                    {view === 'signup' ? 'Create Account' :
+                                        view === 'login' ? 'Sign In' :
+                                            view === 'update-password' ? 'Update Password' :
+                                                'Send Reset Link'}
                                     <ArrowRight size={18} />
                                 </>
                             )}
@@ -101,15 +186,27 @@ export default function LoginPage() {
                     </form>
 
                     <div className="login-footer">
-                        <p>
-                            {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-                            <button
-                                className="btn-link"
-                                onClick={() => setIsSignUp(!isSignUp)}
-                            >
-                                {isSignUp ? 'Sign In' : 'Sign Up'}
-                            </button>
-                        </p>
+                        {view !== 'forgot' && view !== 'update-password' ? (
+                            <p>
+                                {view === 'signup' ? 'Already have an account?' : "Don't have an account?"}
+                                <button
+                                    className="btn-link"
+                                    onClick={() => setView(view === 'signup' ? 'login' : 'signup')}
+                                >
+                                    {view === 'signup' ? 'Sign In' : 'Sign Up'}
+                                </button>
+                            </p>
+                        ) : (
+                            <p>
+                                {view === 'update-password' ? 'Need to login instead?' : 'Remember your password?'}
+                                <button
+                                    className="btn-link"
+                                    onClick={() => setView('login')}
+                                >
+                                    Sign In
+                                </button>
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>
