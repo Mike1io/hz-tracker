@@ -12,6 +12,7 @@ import {
     Twitter,
     UserCircle,
     Activity,
+    Newspaper,
 } from 'lucide-react';
 import { profileStorage } from '../lib/profileStorage';
 import toast from 'react-hot-toast';
@@ -50,6 +51,7 @@ export default function Layout() {
         { to: '/history', icon: <History size={20} />, label: 'History' },
         { to: '/profile', icon: <UserCircle size={20} />, label: 'Account' },
         { to: '/market', icon: <Activity size={20} />, label: 'Market' },
+        { to: '/news', icon: <Newspaper size={20} />, label: 'News' },
     ];
 
     return (

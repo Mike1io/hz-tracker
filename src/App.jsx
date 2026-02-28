@@ -9,6 +9,7 @@ import AddTradePage from './pages/AddTradePage';
 import HistoryPage from './pages/HistoryPage';
 import ProfilePage from './pages/ProfilePage';
 import MarketPage from './pages/MarketPage';
+import NewsPage from './pages/NewsPage';
 import { Toaster } from 'react-hot-toast';
 
 function App() {
@@ -47,6 +48,7 @@ function App() {
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/market" element={<MarketPage />} />
+            <Route path="/news" element={<NewsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
