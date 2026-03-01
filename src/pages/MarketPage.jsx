@@ -84,6 +84,7 @@ export default function MarketPage() {
     // ── Market data ──────────────────────────────────────────────────────────
     const fetchPrices = async () => {
         if (!coins.length) setLoading(true);
+        setMarketError(null);
         try {
             const res = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h');
             const data = await res.json();
@@ -93,9 +94,11 @@ export default function MarketPage() {
                 localStorage.setItem('market_coins_cache', JSON.stringify(data));
             } else if (data.status?.error_code === 429) {
                 console.warn('CoinGecko API rate limit reached for prices.');
+                if (!coins.length) setMarketError("CoinGecko API rate limit reached. Please wait a minute and try again.");
             }
         } catch (error) {
             console.error('Failed to fetch market prices:', error);
+            if (!coins.length) setMarketError("Failed to fetch market data. Please check your connection.");
         } finally {
             setLoading(false);
         }
@@ -371,10 +374,22 @@ export default function MarketPage() {
             {/* ══════════════════════════════════════════════ */}
             {isMarketTab && (
                 <>
-                    {loading && !coins.length ? (
+                    {loading && !coins.length && !marketError ? (
                         <div className="loading-screen">
                             <div className="spinner" />
                             <p>Loading market data...</p>
+                        </div>
+                    ) : marketError && !coins.length ? (
+                        <div style={{ textAlign: 'center', padding: '100px 20px', color: 'var(--text-secondary)' }}>
+                            <WifiOff size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
+                            <h3 style={{ marginBottom: '8px' }}>API Rate Limit Reached</h3>
+                            <p>{marketError}</p>
+                            <button
+                                onClick={() => { setLoading(true); fetchPrices(); fetchGlobalStats(); }}
+                                style={{ marginTop: '16px', padding: '10px 24px', borderRadius: '10px', background: 'var(--primary)', color: '#000', border: 'none', cursor: 'pointer', fontWeight: '600' }}
+                            >
+                                Try Again
+                            </button>
                         </div>
                     ) : (
                         <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
@@ -429,11 +444,19 @@ export default function MarketPage() {
                         </div>
                     )}
 
-                    {filteredCoins.length === 0 && !loading && (
+                    {filteredCoins.length === 0 && !loading && !marketError && coins.length > 0 && (
                         <div style={{ textAlign: 'center', padding: '100px 20px', color: 'var(--text-secondary)' }}>
                             {activeTab === 'favorites' ? <Heart size={48} style={{ marginBottom: '16px', opacity: 0.2 }} /> : <Search size={48} style={{ marginBottom: '16px', opacity: 0.2 }} />}
                             <h3>{activeTab === 'favorites' ? 'No favorites yet' : 'No tokens found'}</h3>
                             <p>{activeTab === 'favorites' ? 'Start favoriting tokens to see them here' : 'Try searching for a different name or symbol'}</p>
+                        </div>
+                    )}
+
+                    {coins.length === 0 && !loading && !marketError && (
+                        <div style={{ textAlign: 'center', padding: '100px 20px', color: 'var(--text-secondary)' }}>
+                            <Search size={48} style={{ marginBottom: '16px', opacity: 0.2 }} />
+                            <h3>No market data available</h3>
+                            <p>Unable to retrieve market data at this time.</p>
                         </div>
                     )}
 
