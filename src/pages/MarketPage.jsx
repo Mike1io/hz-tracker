@@ -49,6 +49,7 @@ export default function MarketPage() {
         return [];
     });
     const [loading, setLoading] = useState(true);
+    const [marketError, setMarketError] = useState(null);
     const [lastUpdated, setLastUpdated] = useState(null);
     const [selectedAsset, setSelectedAsset] = useState(null);
     const [coinDetails, setCoinDetails] = useState(null);
@@ -692,7 +693,6 @@ export default function MarketPage() {
                     </div>
                 </div>
             )}
-
             <style>{`
         .spin { animation: spin 1s linear infinite; }
         .market-card-hover { cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
